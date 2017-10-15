@@ -1,0 +1,91 @@
+import googlemaps
+
+from uber_rides.session import Session
+from uber_rides.client import UberRidesClient
+
+from bs4 import BeautifulSoup
+import requests, json
+
+
+
+destination = raw_input("Welcome to the POINTB app, where we can take you from point A to POINTB!\nWhere would you like to go?\t")
+
+passengers = int(raw_input("How many riders? "))
+
+
+
+def Locate(dest):
+
+    api_key = "AIzaSyAe2AVGWskA6tmaaygLLof-3wPzWh7QE0E"   #This is the Google Maps api key
+    gm = googlemaps.Client(key=api_key)
+
+    location = gm.geolocate()
+    Init_lat = str(location).split(":")[2].split(",")[0]
+    Init_lng = str(location).split(":")[3].split("}")[0]
+    geocode_result = gm.geocode(dest)
+
+    geocode_lat = (geocode_result[0]['geometry']['location']['lat'])
+    geocode_lng = (geocode_result[0]['geometry']['location']['lng'])
+
+    Initial_coor= Init_lat, Init_lng
+    Destination_coor = geocode_lat, geocode_lng
+
+    return Initial_coor, Destination_coor
+
+
+
+def Uber(Init_Lat, Init_Lng, Final_Lat,Final_Lng, num_riders):
+    session = Session(server_token="OohZa4vzl5TkDLxu8m93uE4TzEL9Rd7_8ChfcdWS")  # this is Uber
+    client = UberRidesClient(session)
+
+    response = client.get_products(Init_Lat, Init_Lng)
+    products = response.json.get('products')
+
+    response = client.get_price_estimates(
+        start_latitude=Init_Lat,
+        start_longitude=Init_Lng,
+        end_latitude=Final_Lat,
+        end_longitude=Final_Lng,
+        seat_count=num_riders
+    )
+
+    estimate = response.json.get('prices')
+    print "\n"
+    for x in estimate:
+        print "Type", x["localized_display_name"]
+        print "Distance", x["distance"], "mi"
+        print "Estimate Price", x["estimate"]
+        print "* * * * * * * * * * * * *"
+        print " "
+    print "___________________________________________________________"
+
+
+
+def Marta(Init_Lat, Init_Lng, Final_Lat,Final_Lng, num_riders):
+    r = requests.get(
+        'http://dev.virtualearth.net/REST/V1/Routes/Transit?wp.0={},{}&wp.1={},{}&timeType=Departure&dateTime=3:00:00PM&output=xml&key=AsI1u6zLAtRaC7qOZXXtrEFxQm8-sUK3CcuRev-uXEqCWO_b3Kpee4vF2iR2HlDP'.format(
+            Init_lat,Init_lng,Final_Lat,Final_lng))
+
+    Beau = BeautifulSoup(r.text, "html.parser")
+    Beau = Beau.find("travelduration")
+
+
+    time = int(int(Beau.text) / 60)
+    print "\nApproximate Time: ",time, 'mins'
+    print "Marta will cost you: $", float(num_riders * 2.50)
+    print "___________________________________________________________"
+
+
+
+
+Init_lat =  Locate(destination)[0][0]
+Init_lng = Locate(destination)[0][1]
+Final_lat = Locate(destination)[1][0]
+Final_lng = Locate(destination)[1][1]
+
+
+Marta(Init_lat,Init_lng,Final_lat, Final_lng,passengers)
+Uber(Init_lat,Init_lng,Final_lat, Final_lng,passengers)
+
+
+
